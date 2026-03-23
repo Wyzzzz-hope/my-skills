@@ -1,13 +1,26 @@
 ---
 name: migrate-component-by-design
-description: 根据用户提供的设计稿截图和功能简述，在当前项目中查找对应的 React 组件，迁移到用户提供的目录下，并输出说明文档。当用户提供 UI 截图、设计稿图片，或询问“这个界面/功能对应哪个组件”，对话“我要迁移组件”时使用此技能。
+description: 根据用户提供的设计稿截图和功能简述，在当前项目中查找对应的 React 组件，迁移到用户提供的目录下，并输出说明文档。当用户提供 UI 截图、设计稿图片，或询问“这个界面/功能对应哪个组件”，提出“我要迁移组件”时使用此技能。
 ---
 
 # 根据设计稿查找并拷贝组件
 
 ## 目标
 
-将与设计稿对应的组件及其**所有依赖文件原封不动**拷贝到用户确认的目标项目目录（`<PROJECT_DIR>/`）下，mock 数据单独封装到 `<PROJECT_DIR>/src/mock/` 目录，并输出一份说明文档，描述目录结构、各文件功能及需要安装的依赖。
+将与设计稿对应的组件及其依赖文件迁移到用户确认的目标项目目录（`<PROJECT_DIR>/`）下，自动处理路径适配和依赖解析，mock 数据单独封装到 `<PROJECT_DIR>/src/mock/` 目录，生成可直接运行的测试页面，并输出一份说明文档。
+
+---
+
+## 迁移背景
+
+本次迁移的对象是当前源项目中的**搜索结果页**组件，用户每次只迁移一个平台（淘宝 / 京东 / PDD）的某个区域，具体是哪个组件由 AI 根据截图自行搜索确定。
+
+辅助定位视觉锚点（帮助 AI 根据截图快速判断平台）：
+- **PDD**：红色渐变搜索栏、「百亿补贴」标签、红色筛选图标 ≡
+- **京东**：白底搜索栏、「自营」红标、「X万+人种草」
+- **淘宝**：橙色渐变搜索栏、「付款人数」文案
+
+> 以上列表仅为参考方向，AI 仍需根据截图自行搜索确认，不得跳过搜索步骤。定位到组件后**整体迁移**，不纠结实现与截图的视觉差距。
 
 ---
 
@@ -15,9 +28,7 @@ description: 根据用户提供的设计稿截图和功能简述，在当前项�
 
 ### Step 0：确认目标项目目录
 
-首先执行`node scripts/init.ts`
-
-询问用户目标项目的目录名称：
+首先询问用户目标项目的目录名称：
 
 ```
 请告诉我目标项目的目录名称（如 demo-app、my-project 等），我将在当前工作区中查找或创建该目录。
@@ -120,76 +131,89 @@ npm create ice <PROJECT_DIR> --template @ice/lite-scaffold
 - 组件内的 JSX 结构是否与截图 UI 吻合
 - 组件是否包含截图中的关键 UI 元素（Table、Form、Modal、Card 等）
 
-### Step 5：递归收集依赖并批量拷贝（核心步骤，要求快速）
+### Step 5：分析依赖并按需抓取相关代码（核心步骤）
 
-找到入口文件后，**直接提取 import → 递归收集所有本地依赖文件 → 批量 cp 拷贝**，不做任何内容分析和修改。
+找到入口文件后，**读取源代码 → 识别相关部分 → 抽离到目标目录**，无关内容全部剪除。
 
 > **核心约束（不可违反）**
-> - **严禁自己实现代码**：不得自行编写任何组件逻辑、容器组件或 wrapper，所有代码均来自原项目文件的直接拷贝
-> - **严禁新建容器或改名**：不得创建原项目中不存在的组件文件，不得为组件起新名字
-> - **以文件为单位迁移**：目标组件在哪个文件里，就把那个文件整体迁移；若目标功能内嵌在某个大文件中，整个大文件原封不动迁移
-> - **保持路径和文件名完全不变**：迁移后在 `<PROJECT_DIR>/src/` 下的相对路径必须与源项目 `src/` 下完全一致
+> - **按需抓取**：只保留与目标功能直接相关的代码，无关的属性、分支、子组件、进口全部剪除
+> - **纯净组件**：抓取后的组件不依赖任何源项目内部路径，可独立运行
+> - **命名自由**：组件名、文件名、目录名可自行设计，不必完全与源项目一致
+> - **声明源头**：每个输出文件必须在顶部注释中标注引自哪些源文件
 
-#### 5.1 递归收集依赖文件
+#### 5.1 识别相关代码
 
-1. 读取入口文件，用正则提取所有 `import ... from '...'` 语句
-2. 将 import 路径分为两类：
-   - **本地文件**（`./`、`../`、`@/` 开头）：解析为绝对路径，加入待拷贝列表
-   - **第三方包**（其他）：记录包名，后续查 `package.json` 获取版本
-3. 对每个本地文件**递归执行步骤 1-2**，直到所有依赖收集完毕
-4. 同时收集同目录下的关联文件（如 `.tsx` 文件对应的 `.module.less`、`.less`、`.css`）
+阅读入口文件，明确以下内容：
 
-**注意**：
-- import 路径不带后缀时，按 `.tsx` → `.ts` → `/index.tsx` → `/index.ts` 顺序尝试
-- `@/` 开头的路径映射到 `src/`
+1. **目标功能范围**：截图对应哪个组件 / 哪个函数 / 哪个分支（如 `envType === 'pdd'` 分支）
+2. **相关依赖**：目标代码引用的 import、工具函数、类型、子组件
+3. **无关内容**：其他平台分支、未使用的 props、未被调用的函数、其他平台的渲染逻辑
 
-#### 5.2 批量拷贝
+#### 5.2 抓取规则
 
-收集完所有文件路径后，使用终端命令**一次性批量拷贝**：
+| 内容类型 | 处理方式 |
+|----------|----------|
+| 目标组件 JSX 结构 | 保留 |
+| 对应的样式规则（`.less` / `.module.less`） | 保留相关选择器，剪切无关的其他平台样式 |
+| 被目标组件直接调用的工具函数 / 常量 | 保留 |
+| 被目标组件直接引入的子组件 | 同样按需抓取 |
+| 其他平台分支（如 `envType === 'jd'`、`envType === 'tb'`） | **剪除** |
+| 未使用的 props 字段 / state 变量 | **剪除** |
+| 未被调用的工具函数 | **剪除** |
+| 源项目内部路径 import（如 `@/utils/xxx`） | 按需内联或转为相对路径 |
+| 内部專用第三方包（如 `@ali/xxx`） | 记录为不可用依赖，提示用户手动处理 |
 
-```bash
-# 1. 创建目录结构（严格按照源项目路径，不得新建原项目不存在的目录）
-mkdir -p <PROJECT_DIR>/src/components/Xxx <PROJECT_DIR>/src/components/Yyy <PROJECT_DIR>/src/mock
+#### 5.3 输出文件组织
 
-# 2. 批量 cp（每个文件一条 cp 命令，目标路径与源路径保持一致）
-cp src/components/Xxx/index.tsx <PROJECT_DIR>/src/components/Xxx/index.tsx
-cp src/components/Xxx/index.module.less <PROJECT_DIR>/src/components/Xxx/index.module.less
-cp src/components/Yyy/index.tsx <PROJECT_DIR>/src/components/Yyy/index.tsx
-# ... 所有依赖文件
+**命名原则**：根据组件功能自行设计清晰合理的命名，不必与源项目一致。
+
+```
+<PROJECT_DIR>/src/components/
+└── XxxComponent/          ← 自行命名
+    ├── index.tsx            ← 目标组件等抓取结果，顶部注释声明源文件
+    ├── index.module.less    ← 只保留该组件相关的样式
+    └── utils.ts             ← 从源项目工具文件中抓取的相关函数
 ```
 
-#### 5.3 拷贝规则
+**源文件声明格式**（每个输出文件顶部必写）：
 
-**核心原则：所有文件完全原封不动拷贝，不做任何修改。**
+```tsx
+/**
+ * 引自源文件：
+ *   src/components/FilterCardHeader/index.tsx  ← 主要逻辑来源
+ *   src/utils/formatPrice.ts                  ← 工具函数来源
+ * 抓取范围： renderPDDFilter 函数 + 相关工具函数
+ * 剪除内容： 淘宝/京东分支、envType 判断逻辑、未使用的 props
+ */
+```
 
-| 文件类型 | 处理方式 |
-|----------|----------|
-| `.tsx` / `.ts` 本地文件 | **原封不动** `cp` 拷贝，不做任何修改 |
-| `.less` / `.css` / `.module.less` 样式文件 | **原封不动** `cp` 拷贝，不做任何修改 |
-| `.d.ts` 类型定义文件 | **原封不动** `cp` 拷贝 |
-| 工具函数文件 | **原封不动** `cp` 拷贝 |
-| 第三方包 | 不拷贝，在说明文档中列出需安装的包名和版本 |
+#### 5.4 Service 处理
 
-#### 5.4 目录结构规则
+若组件依赖 service 调用接口，需对 service 进行 mock 化改造：
 
-**所有迁移的组件统一放在 `<PROJECT_DIR>/src/components/` 下**，子目录名与原项目中该组件所在的**目录名保持一致**：
+- **保留原始调用代码**（注释掉），新增同名函数返回 `Promise.resolve({ data: mockData })`
+- 组件内调用方式完全不变，天然兼容 mock
 
-- 例如 `src/components/FilterCardHeader/index.tsx` → `<PROJECT_DIR>/src/components/FilterCardHeader/index.tsx`
-- 例如 `src/pages/task/components/render_item_detail/SearchSbsAllSenceComponents/compareComponent/pdd/doubleItem.tsx` → `<PROJECT_DIR>/src/components/pdd/doubleItem.tsx`（子目录名取原路径最末级目录名 `pdd`）
-- 关联的样式文件（`.module.less`、`.less`、`.css`）一并放入同一子目录
+```ts
+// 引自源文件： src/components/XxxComponent/services.ts
+import { mockXxxList } from '@/mock/XxxComponent';
 
-**特殊情况：目标功能内嵌在大文件中**
+// 原始接口调用（已注释）
+// export async function fetchXxxList(params?: any) {
+//   return request('/api/xxx/list', { params });
+// }
 
-若目标组件逻辑只是某个大文件的一部分（如 2000 行文件中的某个渲染函数），**允许**将该部分代码提取到新文件中，放在 `<PROJECT_DIR>/src/components/xxx/` 下：
-- 子目录名 `xxx` 取原大文件所在目录名或原大文件名（去掉后缀），与原项目保持最大关联
-- 提取时**只搬代码，不写新逻辑**：原样复制目标函数/组件的代码块，不增删任何逻辑
-- 被提取的代码中引用的本地依赖，按同样规则一并迁移到 `<PROJECT_DIR>/src/components/` 下对应子目录
+// mock 替代
+export async function fetchXxxList(params?: any) {
+  return mockXxxList();
+}
+```
 
 #### 5.5 完整性要求
 
-- 递归追踪所有本地 import，确保无遗漏
-- 文件体积无上限，不得截断
-- 第三方包不拷贝，记录到说明文档的依赖列表
+- 抓取后的组件必须可独立编译运行，不得保留对源项目的内部路径 import
+- 可调整的 TS 类型错误（如删除功能后第三方库类型不匹配）可修復
+- 实际不可用的内部依赖（如 `@ali/xxx` 内部包）记录到说明文档，不强行引入
 
 ### Step 6：生成 `<PROJECT_DIR>/src/mock/` 目录下的 mock 数据
 
@@ -248,11 +272,51 @@ export const mockXxxList = () =>
   });
 ```
 
-### Step 7：输出说明文档
+### Step 7：生成测试组件
+
+在 `<PROJECT_DIR>/src/test/` 下新建一个 `DemoXxx.tsx` 测试组件，将本次迁移的组件引入并传入 mock 数据，供用户在任意页面中直接 import 使用。
+
+**原则**：
+- 测试组件命名为 `Demo<ComponentName>`，放在 `<PROJECT_DIR>/src/test/Demo<ComponentName>.tsx`
+- 组件内部仅做渲染展示，不引入任何新逻辑
+- 所有 mock 数据均使用 `<PROJECT_DIR>/src/mock/` 中已生成的文件
+- 如果被迁移组件需要通过 service 调接口，需将 service 中的 `IS_MOCK` 设为 `true`
+- 若 `src/test/` 目录不存在，先执行 `mkdir -p <PROJECT_DIR>/src/test` 创建
+
+```tsx
+// <PROJECT_DIR>/src/test/DemoXxx.tsx
+import { XxxComponent } from '@/components/XxxComponent';
+import { mockXxxProps } from '@/mock/XxxComponent';
+
+export default function DemoXxx() {
+  return (
+    <div style={{ padding: 16, backgroundColor: '#f5f5f5' }}>
+      <XxxComponent {...mockXxxProps} />
+    </div>
+  );
+}
+```
+
+若本次迁移了多个组件，在同一测试组件中按设计稿顺序依次排列：
+
+```tsx
+export default function DemoSearchResult() {
+  return (
+    <div style={{ padding: 16, backgroundColor: '#f5f5f5' }}>
+      <AaaComponent {...mockAaaProps} />
+      <BbbComponent {...mockBbbProps} />
+    </div>
+  );
+}
+```
+
+用户只需在目标页面中 `import DemoXxx from '@/test/DemoXxx'` 即可预览。
+
+### Step 8：输出说明文档
 
 完成后，在回复中向用户展示以下内容：
 
-#### 7.1 目录结构及文件说明
+#### 8.1 目录结构及文件说明
 
 列出 `<PROJECT_DIR>/` 目录下所有文件，每个文件附带一行功能说明：
 
@@ -270,7 +334,7 @@ export const mockXxxList = () =>
                 └── index.tsx   ← 子组件，负责 yyy 功能
 ```
 
-#### 7.2 需安装的依赖
+#### 8.2 需安装的依赖
 
 区分**生产依赖**和**开发依赖**，分别列出安装命令：
 
@@ -286,7 +350,7 @@ npm install -D @types/lodash @types/classnames [其他类型定义/构建工具�
 - **生产依赖**：组件 import 直接使用的库（UI 框架、工具函数库、请求库等），运行时缺少会报错
 - **开发依赖**：`@types/*` 类型定义包、构建工具插件、less/sass 预处理器等，仅开发/构建阶段需要
 
-#### 7.3 涉及的 API 接口列表
+#### 8.3 涉及的 API 接口列表
 
 列出所有被 mock 的接口，说明对应的 mock 文件位置：
 
@@ -294,7 +358,7 @@ npm install -D @types/lodash @types/classnames [其他类型定义/构建工具�
 |----------|------|----------------|
 | `/api/xxx/list` | GET | `<PROJECT_DIR>/src/mock/XxxComponent.ts → mockXxxList` |
 
-#### 7.4 mock 数据使用方法
+#### 8.4 mock 数据使用方法
 
 在说明文档中说明如何将 mock 数据接入组件：
 
@@ -342,9 +406,8 @@ export default function Index() {
 - 若截图 UI 与多个组件相关，列出所有候选组件并说明差异，询问用户选择哪个
 - 若未找到完全匹配的组件，列出最接近的结果，并说明差异点
 - 若功能简述与截图存在明显矛盾，主动向用户确认
-- **所有拷贝的文件路径必须真实存在**，不得猜测或编造
-- **所有文件必须在完成 Step 4 的搜索定位后才拷贝**，确保入口文件正确
-- **文件内容完全原封不动**：使用 `cp` 命令拷贝，不得修改任何内容（不得修改 import 路径、不得注释代码、不得替换变量、不得调整格式、不得重构代码、不得删除任何代码），保持与源文件字节级一致
-- **绝对禁止**：不得以任何理由修改拷贝后的文件内容，包括但不限于删除死代码、修复类型错误、调整 import 等
-- **关于自己写代码**：不得凭空实现新逻辑；若目标功能内嵌在大文件中，允许将该代码块**原样**提取到新文件，提取过程中不增删任何业务逻辑
-- **关于目录**：所有文件统一落在 `<PROJECT_DIR>/src/components/<原目录名>/` 下，不得随意嵌套深层路径
+- **所有拓取的源代码必须真实存在**，不得猜测或编造
+- **所有文件必须在完成 Step 4 的搜索定位后才操作**，确保入口文件正确
+- **抓取约束**：只删除与目标功能无关的代码，不得重构逻辑、重命名变量、调整格式、修改注释、替换实现方式
+- **文件命名和目录**：组件命名、文件名可自行设计，必须在文件头部注释中声明引自哪些源文件
+- **不得凭空实现新逻辑**：所有输出代码均来自源项目文件的直接抓取，不得自行编写组件逻辑
