@@ -1,7 +1,7 @@
 ---
 name: lasting-code-review
 description: 全栈代码审查技能，支持前端（React/Vue/TypeScript/CSS）和后端（Node.js/Express/Koa/NestJS/TypeScript/数据库）技术栈的代码审查。支持可选的记忆功能，自动检测 lasting-memory Skill 并读取历史审查偏好，避免重复提出用户已拒绝的建议。当用户完成代码编写、请求代码审查或提交 PR 时使用。
-version: 2.0
+version: 1.0.0
 ---
 
 # 全栈代码审查
