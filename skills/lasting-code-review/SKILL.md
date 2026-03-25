@@ -40,7 +40,7 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 是否需要我帮您安装 lasting-memory Skill？（推荐安装）
 
 请回复：
-- "是" — 使用 <command>npx skills add Wyzzzz-hope/my-skills --skill lasting-memory -a claude -y<command>进行安装
+- "是" — 引导用户打开网站 <url>https://pre-clawhub.alibaba-inc.com/page/skills/529563/lasting-memory</url> 进行安装
 - "否" — 本次审查将在没有历史记忆的情况下进行
 ```
 
