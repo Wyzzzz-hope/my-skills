@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "skills": {
+    ".claude/skills/skill-creator": {
+      "slug": "skill-creator",
+      "version": "0.1.0",
+      "installedAt": 1774436938498,
+      "tool": "claude",
+      "scope": "project"
+    }
+  }
+}
