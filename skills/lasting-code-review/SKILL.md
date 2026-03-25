@@ -1,12 +1,12 @@
 ---
-name: frontend-code-review
-description: 前端代码审查技能，专注于 React/Vue/TypeScript/CSS 等前端技术的代码审查。支持可选的记忆功能，自动检测 lasting-memory Skill 并读取历史审查偏好，避免重复提出用户已拒绝的建议。当用户完成前端代码编写、请求代码审查或提交 PR 时使用。
-version: 1.0
+name: lasting-code-review
+description: 全栈代码审查技能，支持前端（React/Vue/TypeScript/CSS）和后端（Node.js/Express/Koa/NestJS/TypeScript/数据库）技术栈的代码审查。支持可选的记忆功能，自动检测 lasting-memory Skill 并读取历史审查偏好，避免重复提出用户已拒绝的建议。当用户完成代码编写、请求代码审查或提交 PR 时使用。
+version: 2.0
 ---
 
-# 前端代码审查
+# 全栈代码审查
 
-系统化的前端代码审查流程，结合用户历史记忆提供个性化建议。
+系统化的全栈代码审查流程，结合用户历史记忆提供个性化建议。支持前端和 Node.js 后端技术栈。
 
 ## 前置检查
 
@@ -40,7 +40,7 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 是否需要我帮您安装 lasting-memory Skill？（推荐安装）
 
 请回复：
-- "是" — 我将引导您完成安装
+- "是" — 使用 <command>npx skills add Wyzzzz-hope/my-skills --skill lasting-memory -a claude -y<command>进行安装
 - "否" — 本次审查将在没有历史记忆的情况下进行
 ```
 
@@ -66,7 +66,9 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 
 审查开始前，读取 code-review 类别的历史记忆：
 
-<command>node <lasting-memory-path>/scripts/read.cjs --storage-path <storage-path> --category code-review</command>
+<command>node <lasting-memory-path>/scripts/read.cjs --category code-review</command>
+
+**注意**：存储路径由脚本自动检测，无需指定 `--storage-path` 参数。
 
 解析返回的记忆内容，调整审查策略：
 - 跳过用户明确拒绝过的建议类型
@@ -80,10 +82,20 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 
 获取待审查的代码变更：
 - 使用 `git diff` 查看变更内容
-- 识别变更的文件类型（React/Vue/CSS/TS 等）
-- 确定审查范围
+- 识别变更的文件类型（React/Vue/CSS/TS/Node.js 等）
+- 确定审查范围（前端、后端或全栈）
 
-### Step 3: 前端专项审查
+### Step 3: 技术栈专项审查
+
+根据代码类型选择相应的审查维度：
+
+**如果是前端代码（React/Vue/CSS/前端 TS）**：执行 3.1-3.6 前端审查
+**如果是后端代码（Node.js/Express/Koa/后端 TS）**：执行 3.7-3.12 后端审查
+**如果是全栈代码**：同时执行前端和后端审查
+
+---
+
+## 前端审查维度
 
 按以下维度进行审查：
 
@@ -175,15 +187,69 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 根据用户回复，存储反馈记忆到 code-review 类别：
 
 **如果用户拒绝某条建议：**
-<command>node <lasting-memory-path>/scripts/create.cjs --storage-path <storage-path> --category code-review --title "拒绝建议：<建议标题>" --content "用户拒绝了建议：<建议内容>。原因：<用户原因>。文件：<文件路径>。" --keywords "<关键词>"</command>
+<command>node <lasting-memory-path>/scripts/create.cjs --category code-review --title "拒绝建议：<建议标题>" --content "用户拒绝了建议：<建议内容>。原因：<用户原因>。文件：<文件路径>。" --keywords "<关键词>"</command>
 
 **如果用户表达偏好：**
-<command>node <lasting-memory-path>/scripts/create.cjs --storage-path <storage-path> --category code-review --title "用户偏好：<偏好标题>" --content "<偏好内容>" --keywords "偏好,前端"</command>
+<command>node <lasting-memory-path>/scripts/create.cjs --category code-review --title "用户偏好：<偏好标题>" --content "<偏好内容>" --keywords "偏好,前端"</command>
 
-**注意**：本 Skill 只处理 code-review 类别的记忆，专注于代码审查相关的反馈。
+**注意**：
+- 存储路径由脚本自动检测，无需指定 `--storage-path` 参数
+- 本 Skill 只处理 **code-review** 类别的记忆，专注于代码审查相关的反馈
 
 **如果未安装 lasting-memory Skill 或用户选择不使用**：
 跳过存储步骤，不保存用户反馈。
+
+---
+
+## 后端审查维度 (Node.js)
+
+#### 3.7 API 设计
+
+- [ ] **RESTful 规范** — URL 设计是否符合 REST 规范、HTTP 方法使用是否正确
+- [ ] **接口命名** — 路由命名清晰、符合业务语义
+- [ ] **请求验证** — 是否对请求参数进行验证（joi/zod/class-validator）
+- [ ] **响应格式** — 统一的响应格式、错误码定义清晰
+- [ ] **版本控制** — API 版本管理策略是否合理
+
+#### 3.8 错误处理与日志
+
+- [ ] **错误捕获** — 异步错误是否正确捕获（try-catch/Promise.catch）
+- [ ] **错误分类** — 业务错误、系统错误是否区分
+- [ ] **错误信息** — 错误提示是否友好、是否泄露敏感信息
+- [ ] **日志记录** — 关键操作是否记录日志、日志级别是否合理
+- [ ] **监控告警** — 是否有性能监控、错误告警机制
+
+#### 3.9 安全
+
+- [ ] **认证授权** — JWT/Session 使用是否正确、权限校验是否完善
+- [ ] **输入过滤** — 防止 SQL 注入、XSS、CSRF 攻击
+- [ ] **敏感数据** — 密码、Token 等敏感信息是否加密存储
+- [ ] **速率限制** — 是否对接口进行限流保护
+- [ ] **依赖安全** — 第三方依赖是否存在已知漏洞
+
+#### 3.10 数据库操作
+
+- [ ] **连接管理** — 数据库连接池配置是否合理
+- [ ] **查询优化** — SQL 查询是否高效、是否存在 N+1 问题
+- [ ] **事务处理** — 数据一致性保证、事务回滚是否正确
+- [ ] **索引设计** — 查询字段是否添加索引
+- [ ] **ORM 使用** — TypeORM/Prisma/Sequelize 使用是否规范
+
+#### 3.11 性能与可扩展性
+
+- [ ] **异步处理** — 是否合理使用 async/await、Promise
+- [ ] **缓存策略** — Redis/内存缓存使用是否合理
+- [ ] **并发控制** — 高并发场景是否有限流、队列机制
+- [ ] **资源清理** — 文件句柄、数据库连接是否及时释放
+- [ ] **中间件顺序** — Express/Koa 中间件顺序是否正确
+
+#### 3.12 代码质量（后端）
+
+- [ ] **TypeScript 类型** — 避免 any、使用精确类型定义
+- [ ] **依赖注入** — NestJS/InversifyJS 等 DI 使用是否规范
+- [ ] **模块划分** — Controller/Service/Repository 分层是否清晰
+- [ ] **单元测试** — 核心业务逻辑是否有测试覆盖
+- [ ] **配置管理** — 环境变量、配置文件管理是否规范
 
 ---
 
@@ -208,7 +274,9 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 
 ---
 
-## 常见前端反模式
+## 常见反模式
+
+### 前端反模式
 
 | 反模式 | 说明 |
 |--------|------|
@@ -218,6 +286,21 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 | **内联对象/数组作为依赖** | 每次渲染引用不同，导致 effect 重复执行 |
 | **直接操作 DOM** | 绕过 React 的更新机制 |
 | **在 render 中创建函数** | 每次渲染创建新函数，影响子组件 memo |
+
+### 后端反模式 (Node.js)
+
+| 反模式 | 说明 |
+|--------|------|
+| **阻塞事件循环** | 在主线程执行耗时同步操作，导致服务卡死 |
+| **不处理 Promise rejection** | 未捕获的 Promise 错误导致进程崩溃 |
+| **数据库连接不复用** | 每次请求创建新连接，资源浪费严重 |
+| **SQL 拼接** | 直接拼接 SQL，存在注入风险 |
+| **敏感信息泄露** | 错误堆栈、日志暴露密码、Token |
+| **缺少输入验证** | 直接使用用户输入，存在安全隐患 |
+| **同步文件操作** | 使用 fs.readFileSync 等阻塞 I/O |
+| **缺少限流保护** | 接口可被恶意刷量攻击 |
+| **内存泄漏** | 事件监听器未移除、全局变量累积 |
+| **忽略错误处理** | 空的 catch 块，错误被吞没 |
 
 ---
 
@@ -241,9 +324,13 @@ lasting-memory Skill 可以帮助持久化存储您的代码审查偏好，避�
 | 读取历史记忆 | `read.cjs` |
 | 存储用户反馈 | `create.cjs` |
 
-**脚本路径检测**：
-- AI 自动检测 lasting-memory Skill 的位置（`.qoder/skills/lasting-memory/`、`.claude/skills/lasting-memory/`、`skills/lasting-memory/` 等）
-- 存储路径由 lasting-memory Skill 的 `--storage-path` 参数指定
+**Skill 脚本路径检测**：
+- AI 自动检测 lasting-memory Skill 的位置
+- 检查顺序：`.claude/skills/lasting-memory/` → `.qoder/skills/lasting-memory/` → `skills/lasting-memory/`
+
+**存储路径**：
+- 由 lasting-memory 脚本自动检测，无需手动指定 `--storage-path` 参数
+- 脚本会根据当前工具类型（Claude Code、Qoder、Cursor 等）自动选择对应的存储目录
 
 **lasting-memory Skill 状态处理**：
 

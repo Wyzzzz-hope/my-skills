@@ -2,16 +2,19 @@
 
 /**
  * 创建新记忆
- * Usage: node create.js --storage-path <存储路径> --category <类别> --title <标题> --content <内容> --keywords <关键词1,关键词2>
- * 
- * storage-path: 记忆存储目录路径（必填），由调用方根据工具类型设置
- *   - Qoder: 项目目录下的 .qoder/memories
- *   - Claude Code: ~/.claude/memories
- *   - 其他工具根据实际情况设置
+ * Usage: node create.cjs --category <类别> --title <标题> --content <内容> [--keywords <关键词1,关键词2>] [--storage-path <存储路径>]
+ *
+ * storage-path: 可选参数，不指定时自动检测：
+ *   - Claude Code: .claude/memories
+ *   - Qoder: .qoder/memories
+ *   - Cursor: .cursor/memories
+ *   - Continue: .continue/memories
+ *   - 未知工具: .ai-memories
  */
 
 const fs = require('fs');
 const path = require('path');
+const { detectStoragePath } = require('./detect-storage-path.cjs');
 
 function getMemoryFile(storagePath, category) {
     return path.join(storagePath, `${category}.json`);
@@ -67,11 +70,14 @@ function main() {
     const params = parseArgs();
 
     // 验证必填参数
-    if (!params['storage-path'] || !params.category || !params.title || !params.content) {
+    if (!params.category || !params.title || !params.content) {
         console.error('错误：缺少必填参数');
-        console.error('Usage: node create.js --storage-path <存储路径> --category <类别> --title <标题> --content <内容> [--keywords <关键词>]');
+        console.error('Usage: node create.cjs --category <类别> --title <标题> --content <内容> [--keywords <关键词>] [--storage-path <存储路径>]');
         process.exit(1);
     }
+
+    // 自动检测存储路径（可通过参数覆盖）
+    const storagePath = params['storage-path'] || detectStoragePath();
 
     const memory = {
         id: generateId(),
@@ -83,14 +89,14 @@ function main() {
         updatedAt: new Date().toISOString()
     };
 
-    const memories = readMemories(params['storage-path'], params.category);
+    const memories = readMemories(storagePath, params.category);
     memories.push(memory);
-    writeMemories(params['storage-path'], params.category, memories);
+    writeMemories(storagePath, params.category, memories);
 
     console.log(JSON.stringify({
         success: true,
         message: '记忆创建成功',
-        storagePath: params['storage-path'],
+        storagePath: storagePath,
         memory: memory
     }, null, 2));
 }

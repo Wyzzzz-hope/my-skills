@@ -2,14 +2,14 @@
 
 /**
  * 删除记忆
- * Usage: node delete.js --storage-path <存储路径> --category <类别> --id <ID>
- * 
- * storage-path: 记忆存储目录路径（必填），由调用方根据工具类型设置
- *   - Qoder: 项目目录下的 .qoder/memories
+ * Usage: node delete.cjs --category <类别> --id <ID> [--storage-path <存储路径>]
+ *
+ * storage-path: 可选参数，不指定时自动检测
  */
 
 const fs = require('fs');
 const path = require('path');
+const { detectStoragePath } = require('./detect-storage-path.cjs');
 
 function getMemoryFile(storagePath, category) {
     return path.join(storagePath, `${category}.json`);
@@ -53,13 +53,14 @@ function writeMemories(storagePath, category, memories) {
 function main() {
     const params = parseArgs();
 
-    if (!params['storage-path'] || !params.category || !params.id) {
+    if (!params.category || !params.id) {
         console.error('错误：缺少必填参数');
-        console.error('Usage: node delete.js --storage-path <存储路径> --category <类别> --id <ID>');
+        console.error('Usage: node delete.cjs --category <类别> --id <ID> [--storage-path <存储路径>]');
         process.exit(1);
     }
 
-    const storagePath = params['storage-path'];
+    // 自动检测存储路径（可通过参数覆盖）
+    const storagePath = params['storage-path'] || detectStoragePath();
     const memories = readMemories(storagePath, params.category);
     const initialLength = memories.length;
     const filteredMemories = memories.filter(m => m.id !== params.id);

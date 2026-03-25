@@ -2,17 +2,15 @@
 
 /**
  * 读取记忆
- * Usage: 
- *   node read.js --storage-path <存储路径> --id <ID>
- *   node read.js --storage-path <存储路径> --category <类别>
- *   node read.js --storage-path <存储路径> --keywords <关键词1,关键词2>
- * 
- * storage-path: 记忆存储目录路径（必填），由调用方根据工具类型设置
- *   - Qoder: 项目目录下的 .qoder/memories
+ * Usage:
+ *   node read.cjs [--category <类别>] [--id <ID>] [--keywords <关键词1,关键词2>] [--storage-path <存储路径>]
+ *
+ * storage-path: 可选参数，不指定时自动检测
  */
 
 const fs = require('fs');
 const path = require('path');
+const { detectStoragePath } = require('./detect-storage-path.cjs');
 
 function getMemoryFile(storagePath, category) {
     return path.join(storagePath, `${category}.json`);
@@ -64,14 +62,8 @@ function readAllMemories(storagePath) {
 function main() {
     const params = parseArgs();
 
-    // 验证必填参数
-    if (!params['storage-path']) {
-        console.error('错误：缺少必填参数 --storage-path');
-        console.error('Usage: node read.js --storage-path <存储路径> [--id <ID>] [--category <类别>] [--keywords <关键词>]');
-        process.exit(1);
-    }
-
-    const storagePath = params['storage-path'];
+    // 自动检测存储路径（可通过参数覆盖）
+    const storagePath = params['storage-path'] || detectStoragePath();
     let results = [];
 
     // 如果指定了类别，只读取该类别文件
