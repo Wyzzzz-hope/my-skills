@@ -16,7 +16,15 @@ root-directory/
 └── <你的微模块项目>/              # 目标项目（组件迁移至此）
 ```
 
-### 2. 启动流程
+### 2. 安装 SKILL
+
+在 <root-directory> 下安装 SKILL：
+
+```sh
+npx skills add Wyzzzz-hope/my-skills --skill migrate-component-by-design -a claude-code -y
+```
+
+### 3. 启动流程
 
 在终端中启动 Claude Code，然后输入：
 
@@ -24,7 +32,7 @@ root-directory/
 我要迁移组件
 ```
 
-### 3. 流程说明
+### 4. 进入流程
 
 进入 SKILL 流程后，会依次进行：
 
