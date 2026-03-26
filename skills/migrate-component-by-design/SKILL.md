@@ -20,32 +20,24 @@ description: 根据用户提供的设计稿截图和功能简述，从组件列�
 
 ### Step 0：确认目标项目目录
 
-首先询问用户目标项目的目录名称：
+首先查看当前工作区中除了 `audience-insights-frontend` 之外的所有项目目录，然后引导用户选择目标目录：
 
-```
-请告诉我目标项目的目录名称（如 demo-app、my-project 等），我将在当前工作区中查找或创建该目录。
-```
+**操作步骤**：
 
-收到目录名称后（以下用 `<PROJECT_DIR>` 表示），执行以下检查：
+1. **列出可用目录**：
+   ```bash
+   ls -d /Users/wyz/Desktop/nex-workspace/*/ | grep -v audience-insights-frontend | xargs -n1 basename
+   ```
+   将结果展示给用户，例如：
+   ```
+   当前工作区中可用的项目目录：
+   - micro-tb-search-result-audit
+   - [其他项目目录...]
 
-#### 情况 A：目录已存在且包含基础文件
+   请选择你要迁移组件到的目标项目目录名称。
+   ```
 
-若 `<PROJECT_DIR>/` 目录存在，且包含 `package.json`、`ice.config.mts`（或等效构建配置）、`src/` 等基础文件，说明项目已初始化，**直接跳到 Step 0-C 进行基础环境补全检查，然后进入 Step 1**。
-
-#### 情况 B：目录不存在 → 使用 ice.js 脚手架创建
-
-若目录不存在，使用以下命令创建项目：
-
-```bash
-npm create ice <PROJECT_DIR> --template @ice/lite-scaffold
-```
-
-> **注意**：此命令会在当前工作区下创建 `<PROJECT_DIR>/` 目录并生成完整的 ice.js 项目骨架。脚手架生成的所有文件（`package.json`、`ice.config.mts`、`tsconfig.json`、`src/`、`.browserslistrc` 等）**必须完整保留，不得删除或覆盖**。
-
-创建完成后：
-1. **阅读项目 README**：`read_file <PROJECT_DIR>/README.md`，了解项目的启动方式和说明
-2. **检查目录结构**：`list_dir <PROJECT_DIR>/`，确认脚手架生成了哪些文件
-3. 进入 Step 0-C 进行基础环境补全
+2. **用户选择目录**：收到用户选择的目录名称后（以下用 `<PROJECT_DIR>` 表示），直接进入 Step 0-C 进行基础环境补全
 
 #### Step 0-C：基础环境补全（在已有项目基础上补充迁移所需配置）
 
@@ -94,7 +86,14 @@ npm create ice <PROJECT_DIR> --template @ice/lite-scaffold
 
 ### Step 1：确认目标迁移组件
 
-询问用户的目标迁移组件，要求其提供设计稿截图与想要迁移的目标组件名称。
+1. **询问平台**：首先询问用户要迁移的目标平台，提供以下选项：
+   - 淘宝
+   - 京东
+   - 拼多多
+
+   用户选择平台后，后续步骤中只处理该平台的代码，删除其他平台的无关代码。
+
+2. **询问组件信息**：要求用户提供设计稿截图与想要迁移的目标组件名称。
 
 ### Step 2：从组件列表中选择对应组件
 
@@ -152,6 +151,25 @@ npm create ice <PROJECT_DIR> --template @ice/lite-scaffold
 ### Step 6：生成测试组件
 
 在 `<PROJECT_DIR>/src/demo/` 中生成测试组件，用于预览组件效果。
+
+**测试组件要求**：
+- ✅ 只引入迁移后的组件并传入 mock 数据
+- ✅ 直接渲染组件，不包裹额外的样式容器
+- ❌ 禁止添加带样式的 div 容器（如 `display: flex`、`backgroundColor`、`boxShadow` 等）
+- ❌ 禁止添加占位内容和文字说明（如"👆 上方是筛选区组件"、"商品列表区域"等）
+
+**正确示例**：
+```tsx
+import React from 'react';
+import { ComponentName } from '@/components/ComponentName';
+import { mockComponentNameProps } from '@/mock/ComponentName';
+
+const DemoComponentName: React.FC = () => {
+  return <ComponentName {...mockComponentNameProps} />;
+};
+
+export default DemoComponentName;
+```
 
 ### Step 7：输出迁移文档
 
